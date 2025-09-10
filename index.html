@@ -53,6 +53,28 @@
         .cart-modal.open {
             transform: translateX(0);
         }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            position: relative;
+        }
         .hidden {
             display: none;
         }
@@ -159,13 +181,30 @@
         </div>
     </div>
 
+    <!-- Modal de Sabores -->
+    <div id="flavors-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold mb-4">Escolha os Sabores</h3>
+            <div id="flavors-container" class="grid grid-cols-2 gap-4 mb-4">
+                <!-- Sabores serão injetados aqui via JS -->
+            </div>
+            <div class="flex justify-end space-x-4 mt-4">
+                <button id="cancel-flavors-btn" class="bg-gray-400 text-white py-2 px-4 rounded-md hover:bg-gray-500 transition-colors duration-300">Cancelar</button>
+                <button id="add-flavors-to-cart-btn" class="text-white py-2 px-4 rounded-md transition-colors duration-300" style="background-color: var(--cor-primaria); hover:background-color: var(--cor-texto);">Adicionar ao Carrinho</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const BASE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT2DA6aZJdWSoxFyqZwcJkhmVeDm_YgbskYxZuDH9oX1xHaex0LL-3d3lEubd-mlUP6vzyAmZuk4B5O/pub?gid=0&single=true&output=csv';
         const CONFIG_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT2DA6aZJdWSoxFyqZwcJkhmVeDm_YgbskYxZuDH9oX1xHaex0LL-3d3lEubd-mlUP6vzyAmZuk4B5O/pub?gid=1581437016&single=true&output=csv';
         const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyv79vMU07X0alFFWmTgpGNNpYXcYjzAJjeVfV70Qdys6U1EkFcGYCGyAk9A-i6_Mj/exec';
+        
         let products = [];
+        let flavors = [];
         let cart = [];
         let config = {};
+        let selectedProductForFlavors = null;
         
         const loadingMessage = document.getElementById('loading-message');
         const mainContent = document.getElementById('main-content');
@@ -187,8 +226,11 @@
         const mainSubtitle = document.getElementById('main-subtitle');
         const menuTitle = document.getElementById('menu-title');
         const logoImage = document.getElementById('logo-image');
-        // Elemento para o campo de pesquisa
         const searchInput = document.getElementById('searchInput');
+        const flavorsModal = document.getElementById('flavors-modal');
+        const flavorsContainer = document.getElementById('flavors-container');
+        const cancelFlavorsBtn = document.getElementById('cancel-flavors-btn');
+        const addFlavorsToCartBtn = document.getElementById('add-flavors-to-cart-btn');
 
         // --- Funções Auxiliares ---
         const generateOrderId = () => {
@@ -208,19 +250,16 @@
             let totalWithoutDiscount = 0;
             let totalDiscount = 0;
             const allItems = [];
-            const itemDiscountCounts = {}; // Mapeia o ID do produto para a contagem de vezes que ele foi descontado
+            const itemDiscountCounts = {}; 
             
-            // 1. "Desempacota" o carrinho em uma lista de itens individuais
             cart.forEach(item => {
                 for (let i = 0; i < item.quantity; i++) {
                     allItems.push(item.product);
                 }
             });
         
-            // 2. Ordena a lista de itens por preço original
             allItems.sort((a, b) => a.originalPriceValue - b.originalPriceValue);
         
-            // 3. Itera para encontrar pares e aplicar o desconto
             const processedIndices = new Set();
             for (let i = 0; i < allItems.length - 1; i++) {
                 if (processedIndices.has(i)) continue;
@@ -228,22 +267,19 @@
                 const currentItem = allItems[i];
                 const nextItem = allItems[i + 1];
         
-                // O critério de par é apenas o preço
                 if (currentItem.originalPriceValue === nextItem.originalPriceValue) {
                     totalDiscount += currentItem.discount + nextItem.discount;
         
                     processedIndices.add(i);
                     processedIndices.add(i + 1);
                     
-                    // Incrementa o contador de descontos para cada um dos itens do par
                     itemDiscountCounts[currentItem.id] = (itemDiscountCounts[currentItem.id] || 0) + 1;
                     itemDiscountCounts[nextItem.id] = (itemDiscountCounts[nextItem.id] || 0) + 1;
                     
-                    i++; // Pula o próximo item, pois ele já faz parte do par
+                    i++; 
                 }
             }
         
-            // 4. Calcula o total bruto
             allItems.forEach(item => {
                 totalWithoutDiscount += item.originalPriceValue;
             });
@@ -271,12 +307,9 @@
             
         const renderProducts = () => {
             productGrid.innerHTML = '';
-            // Pega o filtro de categoria ativo
             const activeFilter = document.querySelector('.filter-btn.active-filter')?.dataset.category || 'Todos';
-            // Pega o valor do campo de pesquisa e converte para minúsculas para uma busca case-insensitive
             const searchTerm = searchInput.value.toLowerCase();
 
-            // Filtra os produtos com base na categoria e no termo de pesquisa
             const filteredProducts = products.filter(p => {
                 const matchesCategory = activeFilter === 'Todos' || p.category === activeFilter;
                 const matchesSearch = p.name.toLowerCase().includes(searchTerm) || (p.description && p.description.toLowerCase().includes(searchTerm));
@@ -293,7 +326,21 @@
                 card.className = 'product-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col justify-between transform hover:scale-105 transition-transform duration-300';
                 card.dataset.category = product.category;
                 card.dataset.productName = product.name;
+                card.dataset.productId = product.id;
 
+                let actionButtonHTML = '';
+                if (product.flavors && product.flavors.length > 0) {
+                    actionButtonHTML = `
+                        <button class="add-flavors-btn w-full text-white py-2 px-4 rounded-full text-sm transition-colors duration-300" style="background-color: var(--cor-destaque); hover:background-color: var(--cor-primaria);">
+                            Adicionar Sabores
+                        </button>`;
+                } else {
+                    actionButtonHTML = `
+                        <button class="add-to-cart-btn w-full text-white py-2 px-4 rounded-full text-sm transition-colors duration-300" style="background-color: var(--cor-destaque); hover:background-color: var(--cor-primaria);">
+                            Adicionar ao Carrinho
+                        </button>`;
+                }
+                
                 card.innerHTML = `
                     <div>
                         <img src="${product.image}" alt="${product.name}" class="w-full h-48 object-cover">
@@ -303,19 +350,36 @@
                             ${product.info ? `<p class="text-base font-bold italic text-gray-500 mt-2">${product.info}</p>` : ''}
                         </div>
                     </div>
-                    <div class="p-6 pt-0">
-                        <div class="flex flex-col mb-4">
-                        </div>
+                    <div class="p-6 pt-0 flex justify-center">
                         <div class="flex items-center space-x-2">
-                            <input type="number" value="1" min="1" class="quantity-input w-16 text-center border rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-[var(--cor-destaque)]" data-product-name="${product.name}">
-                            <button class="add-to-cart-btn text-white py-2 px-4 rounded-full text-sm transition-colors duration-300" style="background-color: var(--cor-destaque); hover:background-color: var(--cor-primaria);">
-                                Adicionar
-                            </button>
+                            ${actionButtonHTML}
                         </div>
                     </div>
                 `;
                 productGrid.appendChild(card);
             });
+        };
+
+        const renderFlavorsModal = (product) => {
+            flavorsContainer.innerHTML = '';
+            
+            if (!product || !Array.isArray(product.flavors) || product.flavors.length === 0) {
+                flavorsContainer.innerHTML = `<p class="text-center text-gray-500">Este produto não possui sabores disponíveis.</p>`;
+                addFlavorsToCartBtn.classList.add('hidden');
+            } else {
+                addFlavorsToCartBtn.classList.remove('hidden');
+                product.flavors.forEach(flavor => {
+                    const flavorDiv = document.createElement('div');
+                    flavorDiv.className = 'flex flex-col items-center p-2 border rounded-lg';
+                    flavorDiv.innerHTML = `
+                        <p class="font-bold text-lg mb-2 text-center">${flavor}</p>
+                        <input type="number" value="0" min="0" class="flavor-quantity w-full text-center border rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-[var(--cor-destaque)]" data-flavor-name="${flavor}">
+                    `;
+                    flavorsContainer.appendChild(flavorDiv);
+                });
+            }
+           
+            flavorsModal.classList.remove('hidden');
         };
             
         // Atualiza a exibição do carrinho
@@ -337,7 +401,6 @@
                 
                 const originalPriceString = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.product.originalPriceValue);
                 
-                // Calcula o desconto total para este grupo de itens
                 const numberOfDiscountedItems = itemDiscountCounts[item.product.id] || 0;
                 let totalItemDiscount = 0;
                 if (numberOfDiscountedItems > 0) {
@@ -347,13 +410,16 @@
                 const discountText = totalItemDiscount > 0
                     ? `<span class="text-xs text-red-500 ml-2">Desconto aplicado! -${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalItemDiscount)}</span>`
                     : '';
-
+                
                 const itemTotal = (item.product.originalPriceValue * item.quantity) - totalItemDiscount;
+
+                const flavorDetails = item.flavors.length > 0 ? `<p class="text-sm text-gray-500">Sabores: ${item.flavors.map(f => `${f.name} (x${f.quantity})`).join(', ')}</p>` : '';
 
                 cartItem.innerHTML = `
                     <div class="flex-grow">
                         <h4 class="font-bold">${item.product.name} ${discountText}</h4>
                         <p class="text-sm text-gray-500">${item.quantity} x ${originalPriceString}</p>
+                        ${flavorDetails}
                     </div>
                     <span class="font-bold">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(itemTotal)}</span>
                     <button data-product-name="${item.product.name}" class="remove-from-cart-btn ml-4 text-red-500 hover:text-red-700">
@@ -383,37 +449,98 @@
                     document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active-filter'));
                     e.target.classList.add('active-filter');
 
-                    renderProducts(); // Chama a função de renderização após a mudança de filtro
+                    renderProducts(); 
                 }
             });
             
-            // Adiciona o event listener para o campo de pesquisa
             searchInput.addEventListener('input', () => {
-                renderProducts(); // Chama a função de renderização sempre que o usuário digita
+                renderProducts();
             });
 
             productGrid.addEventListener('click', (e) => {
-                const button = e.target.closest('.add-to-cart-btn');
-                if (button) {
-                    const card = button.closest('.product-card');
-                    const productName = card.dataset.productName;
-                    const quantityInput = card.querySelector('.quantity-input');
-                    const quantity = parseInt(quantityInput.value, 10);
+                const addFlavorsBtn = e.target.closest('.add-flavors-btn');
+                const addToCartBtn = e.target.closest('.add-to-cart-btn');
+                
+                if (addFlavorsBtn || addToCartBtn) {
+                    const card = (addFlavorsBtn || addToCartBtn).closest('.product-card');
+                    const productId = card.dataset.productId;
                     
-                    const existingItem = cart.find(item => item.product.name === productName);
-                    
-                    if (existingItem) {
-                        existingItem.quantity += quantity;
-                    } else {
-                        const product = products.find(p => p.name === productName);
-                        cart.push({ product, quantity });
+                    selectedProductForFlavors = products.find(p => p.id === productId);
+
+                    if (!selectedProductForFlavors) {
+                        showMessage('Erro: Produto não encontrado. Por favor, recarregue a página.');
+                        return;
                     }
-                    
-                    showMessage(`${quantity} ${productName} adicionado${quantity > 1 ? 's' : ''}!`);
-                    updateCart();
+
+                    if (addFlavorsBtn) {
+                        renderFlavorsModal(selectedProductForFlavors);
+                    } else if (addToCartBtn) {
+                        const existingItem = cart.find(item => item.product.id === selectedProductForFlavors.id);
+                        if (existingItem) {
+                            existingItem.quantity += 1;
+                        } else {
+                            cart.push({
+                                product: selectedProductForFlavors,
+                                quantity: 1,
+                                flavors: []
+                            });
+                        }
+                        showMessage(`${selectedProductForFlavors.name} adicionado ao carrinho!`);
+                        updateCart();
+                    }
                 }
             });
+
+            addFlavorsToCartBtn.addEventListener('click', () => {
+                const flavorInputs = document.querySelectorAll('#flavors-container .flavor-quantity');
+                const selectedFlavors = [];
+                let totalQuantity = 0;
+
+                flavorInputs.forEach(input => {
+                    const quantity = parseInt(input.value, 10);
+                    if (quantity > 0) {
+                        selectedFlavors.push({
+                            name: input.dataset.flavorName,
+                            quantity: quantity
+                        });
+                        totalQuantity += quantity;
+                    }
+                });
+
+                if (totalQuantity === 0) {
+                    showMessage('Por favor, adicione a quantidade de pelo menos um sabor.');
+                    return;
+                }
+
+                const existingItem = cart.find(item => item.product.id === selectedProductForFlavors.id);
+                
+                if (existingItem) {
+                    existingItem.quantity += totalQuantity;
+                    selectedFlavors.forEach(newFlavor => {
+                        const existingFlavor = existingItem.flavors.find(f => f.name === newFlavor.name);
+                        if (existingFlavor) {
+                            existingFlavor.quantity += newFlavor.quantity;
+                        } else {
+                            existingItem.flavors.push(newFlavor);
+                        }
+                    });
+                } else {
+                    cart.push({
+                        product: selectedProductForFlavors,
+                        quantity: totalQuantity,
+                        flavors: selectedFlavors
+                    });
+                }
+                
+                showMessage(`${totalQuantity} ${selectedProductForFlavors.name} adicionado${totalQuantity > 1 ? 's' : ''}!`);
+                updateCart();
+                flavorsModal.classList.add('hidden');
+            });
             
+            cancelFlavorsBtn.addEventListener('click', () => {
+                flavorsModal.classList.add('hidden');
+            });
+
             cartItemsContainer.addEventListener('click', (e) => {
                 const button = e.target.closest('.remove-from-cart-btn');
                 if (button) {
@@ -452,6 +579,7 @@
                 const { finalTotal, totalDiscount } = calculateTotals();
 
                 const salesData = cart.map(item => {
+                    const flavorsString = item.flavors.map(f => `${f.name} (x${f.quantity})`).join(', ');
                     return {
                         Id: orderId,
                         Data: new Date().toLocaleString('pt-BR'),
@@ -462,7 +590,8 @@
                         Desconto: item.product.discount,
                         "Total Desconto": totalDiscount,
                         Contato: customerName,
-                        whatsapp: customerWhatsapp
+                        whatsapp: customerWhatsapp,
+                        Sabores: flavorsString
                     };
                 });
 
@@ -483,7 +612,8 @@
                 let message = `Olá, meu nome é ${customerName}. Gostaria de fazer o seguinte pedido (N° do pedido: ${orderId}):\n\n`;
                 
                 cart.forEach(item => {
-                    message += `- ${item.product.name} (x${item.quantity}) - ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.product.originalPriceValue)} cada - Total do item: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.product.originalPriceValue * item.quantity)}\n`;
+                    const flavorsString = item.flavors.length > 0 ? ` - Sabores: ${item.flavors.map(f => `${f.name} (x${f.quantity})`).join(', ')}` : '';
+                    message += `- ${item.product.name} (x${item.quantity})${flavorsString}\n`;
                 });
                 
                 message += `\n*Total Geral:* ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalTotal)}\n`;
@@ -491,7 +621,7 @@
                 message += "Agradecemos a preferência!";
                 
                 const encodedMessage = encodeURIComponent(message);
-                const cleanedWhatsapp = customerWhatsapp.replace(/\D/g, ''); // Remove todos os caracteres não numéricos
+                const cleanedWhatsapp = customerWhatsapp.replace(/\D/g, ''); 
                 
                 const whatsappUrl = `https://wa.me/5512997582094?text=${encodedMessage}`;
                 
@@ -522,12 +652,10 @@
                             }
                         });
                         
-                        // Aplica as cores via CSS Variables
                         document.documentElement.style.setProperty('--cor-primaria', config.cor_primaria_hex || '#6D4C41');
                         document.documentElement.style.setProperty('--cor-secundaria', config.cor_secundaria_hex || '#FDF8F2');
                         document.documentElement.style.setProperty('--cor-texto', config.cor_texto_hex || '#4F382A');
                         
-                        // Aplica outros valores
                         mainTitle.textContent = config.titulo_principal || 'Confeitaria Delícias e Sabores';
                         mainSubtitle.textContent = config.subtitulo_catalogo || 'Bem-vindo ao nosso mundo de doçura!';
                         menuTitle.textContent = config.titulo_cardapio || 'Nosso Cardápio';
@@ -537,7 +665,6 @@
                             logoImage.classList.remove('hidden');
                         }
                         
-                        // Aplica a largura e altura da logo, se disponíveis
                         if (config.largura_logo_px) {
                             logoImage.style.width = `${config.largura_logo_px}px`;
                         }
@@ -554,7 +681,6 @@
             }
         };
 
-        // Função para buscar e processar o CSV
         const fetchCSVData = async () => {
             try {
                 const cacheBustedUrl = `${BASE_CSV_URL}&t=${new Date().getTime()}`;
@@ -570,9 +696,10 @@
                             const originalPriceValue = parseFloat(String(product['Valor (R$)']).replace(',', '.')) || 0;
                             const discountValue = parseFloat(String(product['Desconto']).replace(',', '.')) || 0;
                             const finalPriceValue = originalPriceValue - discountValue;
+                            const flavors = product.Sabores ? product.Sabores.split(',').map(s => s.trim()) : [];
                             
-                            return {
-                                id: product.ID,
+                            const newProduct = {
+                                id: String(product.ID),
                                 category: product.Categoria,
                                 name: product.Nome,
                                 description: product.Descrição,
@@ -581,11 +708,13 @@
                                 originalPriceValue: originalPriceValue,
                                 priceValue: finalPriceValue,
                                 discount: discountValue,
-                                info: product['Informação'] || null, // Adiciona o novo campo
-                                image: product['Link Imagem']
+                                info: product['Informação'] || null, 
+                                image: product['Link Imagem'],
+                                flavors: flavors
                             };
+                            return newProduct;
                         });
-                        products = products.filter(p => p.name);
+                        products = products.filter(p => p.name && p.id);
                         
                         if (products.length === 0) {
                              console.warn("Aviso: Nenhum produto válido foi encontrado na planilha. Verifique se os cabeçalhos das colunas e os dados estão corretos.");
