@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sua Bio - Links Úteis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Pacifico&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #ffecd2; /* Fallback for older browsers */
+            background: linear-gradient(to bottom, #ffecd2, #fcb69f);
+            background-attachment: fixed;
+            background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fef3c7' fill-opacity='0.4'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40M0 0L20 40H0'/%3E%3C/g%3E%3C/svg%3E");
+        }
+        #profile-name {
+            font-family: 'Pacifico', cursive;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
+        <!-- Foto de Perfil (será preenchida pelo JS) -->
+        <div class="mb-6">
+            <img id="profile-photo" src="https://placehold.co/128x128/fbcfe8/db2777?text=LOGO" alt="Foto de Perfil" class="w-32 h-32 mx-auto rounded-full ring-4 ring-pink-300 object-cover" onerror="this.src='https://placehold.co/128x128/fbcfe8/db2777?text=LOGO'">
+        </div>
+
+        <!-- Título/Nome (será preenchido pelo JS) -->
+        <h1 id="profile-name" class="text-4xl font-bold text-gray-800 mb-2">Carregando...</h1>
+        <p id="profile-slogan" class="text-gray-600 mb-8">...</p>
+
+        <!-- Container onde os links serão carregados dinamicamente -->
+        <div id="links-container" class="space-y-4">
+            <p id="loading-message" class="text-gray-500 text-sm">Carregando links...</p>
+        </div>
+    </div>
+
+    <script>
+        // URL da planilha online
+        const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0txK4ia9ZYmQ1DBx7FsqyaoT0FKv7shSrosKpj-9qPojAFnpnFwbZB_rJexlJo4l-5KBUmmUN6jY5/pub?gid=0&single=true&output=csv';
+
+        // Função para obter o emoji de acordo com o tipo de link
+        function getEmojiForLink(label) {
+            const lowerLabel = label.toLowerCase();
+            if (lowerLabel.includes('cardapio')) return '🍽️';
+            if (lowerLabel.includes('whatsapp') || lowerLabel.includes('contato')) return '📞';
+            if (lowerLabel.includes('instagram')) return '📸';
+            return '🔗';
+        }
+
+        // Função para obter a cor de acordo com o tipo de link
+        function getColorForLink(label) {
+            const lowerLabel = label.toLowerCase();
+            if (lowerLabel.includes('cardapio')) return 'bg-rose-500 hover:bg-rose-600';
+            if (lowerLabel.includes('whatsapp') || lowerLabel.includes('contato')) return 'bg-green-500 hover:bg-green-600';
+            if (lowerLabel.includes('instagram')) return 'bg-fuchsia-500 hover:bg-fuchsia-600';
+            return 'bg-amber-500 hover:bg-amber-600';
+        }
+
+        // Função para carregar os dados da planilha e renderizar a página
+        async function loadAndRenderPage() {
+            const profilePhoto = document.getElementById('profile-photo');
+            const profileName = document.getElementById('profile-name');
+            const profileSlogan = document.getElementById('profile-slogan');
+            const linksContainer = document.getElementById('links-container');
+            const pageTitle = document.querySelector('title');
+
+            try {
+                linksContainer.innerHTML = '<p id="loading-message" class="text-gray-500 text-sm">Carregando links...</p>';
+                
+                const response = await fetch(sheetUrl);
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar a planilha.');
+                }
+                const text = await response.text();
+                
+                // Analisa o CSV no formato de chave e valor de forma robusta
+                const lines = text.trim().split('\n').slice(1); // Ignora a linha de cabeçalho
+                const profileData = {};
+                lines.forEach(line => {
+                    const parts = line.split(',');
+                    if (parts.length >= 2) {
+                        const key = parts[0].trim().toLowerCase();
+                        const value = parts.slice(1).join(',').trim();
+                        if (key && value) {
+                            profileData[key] = value;
+                        }
+                    }
+                });
+                console.log('Dados da planilha carregados:', profileData);
+                
+                const loadingMessage = document.getElementById('loading-message');
+                if (loadingMessage) {
+                    loadingMessage.remove();
+                }
+
+                // Preenche o título da página
+                if (profileData.title) {
+                    pageTitle.textContent = profileData.title;
+                }
+
+                // Preenche a foto e o nome do perfil
+                if (profileData.logo_url && profileData.logo_url !== '') {
+                    profilePhoto.src = profileData.logo_url;
+                }
+                if (profileData.nome) {
+                    profileName.textContent = profileData.nome;
+                }
+                if (profileData.handle_instagram) {
+                    profileSlogan.textContent = `@${profileData.handle_instagram}`;
+                }
+
+                // Adiciona o favicon se a chave 'favicon_url' existir na planilha
+                if (profileData.favicon_url && profileData.favicon_url !== '') {
+                    const faviconLink = document.createElement('link');
+                    faviconLink.rel = 'icon';
+                    faviconLink.href = profileData.favicon_url;
+                    document.head.appendChild(faviconLink);
+                }
+
+                const specificLinks = [
+                    { key: 'link_cardapio', label: 'Cardápio Online' },
+                    { key: 'numero_whatsapp', label: 'WhatsApp' },
+                    { key: 'link_instagram', label: 'Instagram' }
+                ];
+                
+                specificLinks.forEach(linkInfo => {
+                    const url = profileData[linkInfo.key];
+                    if (url && url !== '') {
+                        let finalUrl = url;
+                        if (linkInfo.key.includes('whatsapp') && !url.startsWith('http')) {
+                            finalUrl = `https://wa.me/55${url.replace(/\D/g, '')}`;
+                        }
+                        
+                        const link = document.createElement('a');
+                        link.href = finalUrl;
+                        link.textContent = `${getEmojiForLink(linkInfo.key)} ${linkInfo.label}`;
+                        link.className = `block w-full text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-colors duration-300 transform hover:scale-105 ${getColorForLink(linkInfo.key)}`;
+                        linksContainer.appendChild(link);
+                    }
+                });
+
+            } catch (error) {
+                console.error(error);
+                linksContainer.innerHTML = `<p class="text-red-500">Erro: Não foi possível carregar os dados. Verifique a URL e a estrutura da planilha.</p>`;
+            }
+        }
+
+        window.onload = loadAndRenderPage;
+    </script>
+</body>
+</html>
