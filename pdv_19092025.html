@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDV - Ponto de Venda</title>
+    
+    <!-- Importa a biblioteca oficial do Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- CSS EMBUTIDO -->
+    <style>
+        /* Estilos Gerais */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        /* Layout Principal (PDV) */
+        .pdv-layout {
+            display: flex;
+            flex-wrap: wrap; /* Permite quebrar em telas menores */
+            gap: 20px;
+        }
+
+        #product-section {
+            flex: 3; 
+            min-width: 320px; /* Largura mínima para telas pequenas */
+        }
+
+        #product-section h2, #cart-section h2 {
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        #cart-section {
+            flex: 1;
+            min-width: 280px;
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            align-self: flex-start; /* Alinha o carrinho no topo */
+        }
+
+        /* Lista de Produtos */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .product-card {
+            border: 1px solid #bdc3c7;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .product-card img {
+            max-width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .product-card .product-name {
+            font-weight: 600;
+            font-size: 0.95em;
+            margin: 10px 0 5px;
+            flex-grow: 1;
+        }
+
+        .product-card .product-price {
+            color: #27ae60;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        /* Seção do Cliente */
+        #cliente-section {
+            padding: 10px;
+            background-color: #e4e9eb;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        #cliente-section h3 {
+            margin: 0 0 10px 0;
+            font-size: 1em;
+            color: #2c3e50;
+        }
+        .cliente-search-wrapper {
+            position: relative;
+            display: flex;
+            gap: 5px;
+        }
+        #cliente-search {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #bdc3c7;
+        }
+        #add-new-cliente-btn {
+            padding: 0 12px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        #cliente-results {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            width: 100%;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .cliente-result-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .cliente-result-item:hover {
+            background-color: #f0f0f0;
+        }
+        #cliente-selecionado-display {
+            background-color: #fff;
+            padding: 8px;
+            margin-top: 5px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #remover-cliente-btn {
+            background: none;
+            border: none;
+            color: #c0392b;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+
+        /* Estilos do Carrinho */
+        #cart-items {
+            min-height: 50px;
+        }
+
+        .cart-empty-msg {
+            color: #7f8c8d;
+        }
+        
+        .cart-group {
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .cart-group-header {
+            font-weight: bold;
+            font-size: 0.8em;
+            color: #2980b9;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed #bdc3c7;
+        }
+        
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+            padding: 4px 0;
+        }
+        
+        .cart-item-remove {
+            background: none;
+            border: none;
+            color: #c0392b;
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+
+        .cart-group-footer {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #ecf0f1;
+            text-align: right;
+        }
+        
+        .cart-group-subtotal {
+            font-weight: bold;
+            font-size: 0.95em;
+        }
+        
+        .cart-group-desconto {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #27ae60;
+        }
+        
+        .cart-footer {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 2px solid #bdc3c7;
+            text-align: right;
+        }
+        
+        #cart-total-sem-desconto {
+            text-decoration: line-through;
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        #cart-economia-total {
+            font-size: 0.95em;
+            color: #27ae60;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        #cart-total {
+            font-size: 1.2em;
+        }
+        
+        #finalizar-venda-btn {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background-color 0.2s;
+        }
+        
+        #finalizar-venda-btn:hover {
+            background-color: #2ecc71;
+        }
+        
+        #finalizar-venda-btn:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        /* Estilos do Modal Genérico */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 420px; /* Reduzido */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px; /* Reduzido */
+            border-top: 1px solid #eee;
+            padding-top: 15px; /* Reduzido */
+        }
+        
+        .modal-actions button {
+            padding: 8px 16px; /* Reduzido */
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            transition: background-color 0.2s;
+        }
+        
+        .modal-btn-cancel {
+            background-color: #ecf0f1;
+            color: #2c3e50;
+        }
+        .modal-btn-cancel:hover {
+            background-color: #bdc3c7;
+        }
+
+        .modal-btn-confirm {
+            background-color: #27ae60;
+            color: white;
+        }
+        .modal-btn-confirm:hover {
+            background-color: #2ecc71;
+        }
+        .modal-btn-confirm:disabled {
+             background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        /* Modal de Sabores */
+        #modal-sabores-list {
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+        }
+
+        .sabor-card {
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .sabor-card-nome {
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        .sabor-quantity-selector {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sabor-quantity-selector button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 28px;
+        }
+        
+        .sabor-quantity-selector button:disabled {
+            background-color: #bdc3c7;
+        }
+
+        .sabor-quantity-selector span {
+            font-size: 1.1em;
+            font-weight: bold;
+            min-width: 20px;
+        }
+
+        /* Modal de Pagamento & Cliente */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px; /* Reduzido */
+        }
+        .form-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-input-group label {
+            margin-bottom: 4px; /* Reduzido */
+            font-size: 0.85em; /* Reduzido */
+            color: #34495e;
+        }
+        .form-input-group input {
+            padding: 8px; 
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        #pagamento-modal .pagamento-total-display {
+            text-align: center;
+            margin-bottom: 15px; /* Reduzido */
+        }
+        #pagamento-modal #pagamento-total-valor {
+            font-size: 1.7em; /* Reduzido */
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        #pagamento-resumo {
+            margin-top: 15px; /* Reduzido */
+            padding-top: 10px; /* Reduzido */
+            border-top: 1px dashed #bdc3c7;
+            text-align: right;
+            font-size: 1em; /* Reduzido */
+            font-weight: bold;
+        }
+        #pagamento-restante.positivo { color: #e74c3c; }
+        #pagamento-restante.negativo { color: #2980b9; }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Meu Ponto de Venda</h1>
+        </header>
+        
+        <main class="pdv-layout">
+            <!-- Coluna da Esquerda: Lista de Produtos -->
+            <section id="product-section">
+                <h2>Produtos</h2>
+                <div id="product-list" class="grid-container">
+                    <p>Carregando produtos...</p>
+                </div>
+            </section>
+
+            <!-- Coluna da Direita: Carrinho -->
+            <aside id="cart-section">
+                <div id="cliente-section">
+                    <h3>Cliente</h3>
+                    <div id="cliente-selecionado-display" style="display: none;"></div>
+                    <div id="cliente-search-area">
+                        <div class="cliente-search-wrapper">
+                             <input type="text" id="cliente-search" placeholder="Buscar por nome ou telefone...">
+                             <button id="add-new-cliente-btn" title="Cadastrar novo cliente">+</button>
+                        </div>
+                        <div id="cliente-results" style="display: none;"></div>
+                    </div>
+                </div>
+                
+                <h2>Carrinho</h2>
+                <div id="cart-items">
+                    <p class="cart-empty-msg">O carrinho está vazio.</p>
+                </div>
+                <div class="cart-footer">
+                    <div id="cart-total-sem-desconto"></div>
+                    <div id="cart-economia-total"></div>
+                    <div id="cart-total">
+                        <strong>Total: R$ 0,00</strong>
+                    </div>
+                    <button id="finalizar-venda-btn" disabled>Finalizar Venda</button>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Modais -->
+    <div id="sabores-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="modal-product-name">Selecionar Sabores</h3>
+            <div id="modal-sabores-list"></div>
+            <div class="modal-actions">
+                <button class="modal-btn-cancel" id="sabores-modal-cancel-btn">Cancelar</button>
+                <button class="modal-btn-confirm" id="sabores-modal-add-btn">Adicionar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="pagamento-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Finalizar Venda</h3>
+            <div class="pagamento-total-display">
+                <span>Total a Pagar</span>
+                <div id="pagamento-total-valor">R$ 0,00</div>
+            </div>
+            <div class="form-grid">
+                <div class="form-input-group"><label for="pag-pix">Pix</label><input type="number" id="pag-pix" placeholder="0.00" min="0" step="0.01"></div>
+                <div class="form-input-group"><label for="pag-dinheiro">Dinheiro</label><input type="number" id="pag-dinheiro" placeholder="0.00" min="0" step="0.01"></div>
+                <div class="form-input-group"><label for="pag-debito">Débito</label><input type="number" id="pag-debito" placeholder="0.00" min="0" step="0.01"></div>
+                <div class="form-input-group"><label for="pag-credito">Crédito</label><input type="number" id="pag-credito" placeholder="0.00" min="0" step="0.01"></div>
+            </div>
+            <div class="form-input-group" style="margin-top:15px;"><label for="pag-caderneta">Caderneta ("Fiado")</label><input type="number" id="pag-caderneta" placeholder="0.00" min="0" step="0.01"></div>
+            <div id="pagamento-resumo"><span id="pagamento-restante-label">Falta Pagar: </span><span id="pagamento-restante">R$ 0,00</span></div>
+            <div class="modal-actions">
+                <button class="modal-btn-cancel" id="pagamento-modal-cancel-btn">Cancelar</button>
+                <button class="modal-btn-confirm" id="confirmar-venda-btn" disabled>Confirmar Venda</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cliente-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Novo Cliente</h3>
+            <div class="form-input-group"><label for="cliente-nome">Nome Completo *</label><input type="text" id="cliente-nome"></div>
+            <div class="form-grid" style="margin-top:15px;">
+                <div class="form-input-group"><label for="cliente-telefone">Telefone</label><input type="text" id="cliente-telefone"></div>
+                <div class="form-input-group"><label for="cliente-email">E-mail</label><input type="email" id="cliente-email"></div>
+            </div>
+            <div class="form-input-group" style="margin-top:15px;"><label for="cliente-obs">Observação</label><input type="text" id="cliente-obs"></div>
+            <div class="modal-actions">
+                <button class="modal-btn-cancel" id="cliente-modal-cancel-btn">Cancelar</button>
+                <button class="modal-btn-confirm" id="cliente-modal-save-btn">Salvar Cliente</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- JAVASCRIPT EMBUTIDO -->
+    <script type="module">
+        // =======================================================
+        // CONFIGURAÇÃO DO SUPABASE
+        // =======================================================
+        const SUPABASE_URL = "https://ijxtdhjtirybjullrixy.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqeHRkaGp0aXJ5Ymp1bGxyaXh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyODU3NDAsImV4cCI6MjA3Mzg2MTc0MH0.jbDKQiGmZ2GIWqbKZjgXm2xVtMYxRvmqZVcdMlmxNV4";
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // =======================================================
+        // NOMES DAS TABELAS
+        // =======================================================
+        const T = {
+            PRODUTOS: "Produtos",
+            PRECOS: "Precos_Por_Quantidade",
+            PRODUTO_SABORES: "Produto_Sabores",
+            VENDAS: "vendas",
+            VENDA_ITENS: "venda_itens",
+            VENDA_PAGAMENTOS: "venda_pagamentos",
+            CLIENTES: "clientes"
+        };
+
+        // =======================================================
+        // ESTADO DA APLICAÇÃO
+        // =======================================================
+        let carrinho = {}; 
+        const precosPorProduto = new Map();
+        const precosSignaturePorProduto = new Map();
+        let totalDaVendaAtual = 0;
+        let clienteSelecionado = null;
+
+        // =======================================================
+        // CARREGAMENTO INICIAL E LISTENERS GERAIS
+        // =======================================================
+        document.addEventListener('DOMContentLoaded', async () => {
+            await carregarProdutosEPrecos();
+            setupModalListeners();
+            setupClienteListeners();
+        });
+
+        async function carregarProdutosEPrecos() {
+            try {
+                const { data: produtos, error } = await supabaseClient
+                    .from(T.PRODUTOS)
+                    .select(`id_produto, nome, link_imagem, ${T.PRECOS} (*)`);
+                if (error) throw error;
+
+                const productListElement = document.getElementById('product-list');
+                productListElement.innerHTML = '';
+                if (produtos.length === 0) {
+                    productListElement.innerHTML = '<p>Nenhum produto encontrado.</p>';
+                    return;
+                }
+
+                produtos.forEach(produto => {
+                    const precosOrdenados = produto.Precos_Por_Quantidade.sort((a, b) => b.quantidade - a.quantidade);
+                    precosPorProduto.set(produto.id_produto, precosOrdenados);
+                    const signature = precosOrdenados.map(p => `${p.quantidade}:${p.preco}`).join('|');
+                    precosSignaturePorProduto.set(produto.id_produto, signature);
+                    const precoUnitario = precosOrdenados.find(p => p.quantidade === 1)?.preco || 0;
+                    const card = document.createElement('div');
+                    card.className = 'product-card';
+                    card.dataset.id = produto.id_produto;
+                    card.dataset.nome = produto.nome;
+                    card.innerHTML = `<img src="${produto.link_imagem || 'https://placehold.co/150x100/ecf0f1/2c3e50?text=Sem+Imagem'}" alt="Imagem de ${produto.nome}"><div class="product-name">${produto.nome}</div><div class="product-price">R$ ${precoUnitario.toFixed(2).replace('.', ',')}</div>`;
+                    card.addEventListener('click', () => handleProductClick(card.dataset));
+                    productListElement.appendChild(card);
+                });
+            } catch (error) {
+                console.error("Erro ao carregar produtos:", error.message);
+                document.getElementById('product-list').innerHTML = `<p style="color: red;">Erro ao carregar os dados.</p>`;
+            }
+        }
+        
+        async function handleProductClick(produtoData) {
+            try {
+                const { data: sabores, error } = await supabaseClient.from(T.PRODUTO_SABORES).select(`Sabores (id_sabor, nome)`).eq('id_produto', produtoData.id);
+                if (error) throw error;
+                const saboresDisponiveis = sabores.map(s => s.Sabores).filter(Boolean);
+                if (saboresDisponiveis.length > 0) {
+                    abrirModalSabores(produtoData, saboresDisponiveis);
+                } else {
+                    adicionarAoCarrinho(produtoData, null, 1);
+                }
+            } catch (error) {
+                console.error("Erro ao buscar sabores:", error.message);
+                alert("Não foi possível buscar os sabores.");
+            }
+        }
+        
+        // =======================================================
+        // FUNÇÕES DO CARRINHO E CÁLCULO
+        // =======================================================
+        function adicionarAoCarrinho(produtoData, saborInfo, quantidade) {
+            const produtoId = parseInt(produtoData.id);
+            const signature = precosSignaturePorProduto.get(produtoId) || `prod-${produtoId}`;
+            if (!carrinho[signature]) {
+                carrinho[signature] = { promoId: signature, produtos: [], produtoIdParaPreco: produtoId, nomeDaPromo: `Itens com desconto por quantidade` };
+            }
+            const grupo = carrinho[signature];
+            let produtoNoGrupo = grupo.produtos.find(p => p.id === produtoId && p.saborId === (saborInfo?.id || null));
+            if (produtoNoGrupo) {
+                produtoNoGrupo.quantidade += quantidade;
+            } else {
+                grupo.produtos.push({ id: produtoId, saborId: saborInfo?.id || null, nome: saborInfo ? `${produtoData.nome} - ${saborInfo.nome}` : produtoData.nome, quantidade: quantidade });
+            }
+            atualizarCarrinhoDisplay();
+        }
+
+        function removerDoCarrinho(promoId, produtoId, saborId) {
+            const grupo = carrinho[promoId];
+            if (!grupo) return;
+            grupo.produtos = grupo.produtos.filter(p => !(p.id === produtoId && p.saborId == saborId));
+            if (grupo.produtos.length === 0) delete carrinho[promoId];
+            atualizarCarrinhoDisplay();
+        }
+        
+        function limparCarrinho() {
+            carrinho = {};
+            removerClienteSelecionado();
+            atualizarCarrinhoDisplay();
+        }
+
+        function atualizarCarrinhoDisplay() {
+            const cartItemsEl = document.getElementById('cart-items');
+            const totalSemDescontoEl = document.getElementById('cart-total-sem-desconto');
+            const economiaTotalEl = document.getElementById('cart-economia-total');
+            const btnFinalizar = document.getElementById('finalizar-venda-btn');
+            cartItemsEl.innerHTML = '';
+            let economiaTotal = 0, precoTotal = 0, precoCheioTotal = 0;
+            const temItens = Object.keys(carrinho).length > 0;
+
+            if (!temItens) {
+                cartItemsEl.innerHTML = '<p class="cart-empty-msg">O carrinho está vazio.</p>';
+            } else {
+                for (const promoId in carrinho) {
+                    const grupo = carrinho[promoId];
+                    const qtdTotalGrupo = grupo.produtos.reduce((acc, p) => acc + p.quantidade, 0);
+                    if (qtdTotalGrupo === 0) continue;
+
+                    const precoInfo = calcularPrecoComDesconto(grupo.produtoIdParaPreco, qtdTotalGrupo);
+                    economiaTotal += precoInfo.economia;
+                    precoTotal += precoInfo.precoFinal;
+                    precoCheioTotal += precoInfo.precoCheio;
+
+                    const groupEl = document.createElement('div');
+                    groupEl.className = 'cart-group';
+                    let produtosHtml = grupo.produtos.map(p => `<div class="cart-item"><span>${p.nome} (x${p.quantidade})</span><button class="cart-item-remove" data-promoid="${promoId}" data-prodid="${p.id}" data-saborid="${p.saborId}">&times;</button></div>`).join('');
+                    const textoItem = qtdTotalGrupo > 1 ? 'itens' : 'item';
+                    let footerHtml = `<div class="cart-group-footer"><div class="cart-group-subtotal">Subtotal (${qtdTotalGrupo} ${textoItem}): R$ ${precoInfo.precoFinal.toFixed(2).replace('.', ',')}</div>${precoInfo.economia > 0 ? `<div class="cart-group-desconto">Você economizou R$ ${precoInfo.economia.toFixed(2).replace('.', ',')}</div>` : ''}</div>`;
+                    const isMixAndMatch = grupo.produtos.length > 1 || precosPorProduto.get(grupo.produtoIdParaPreco)?.length > 1;
+                    const headerHtml = isMixAndMatch ? `<div class="cart-group-header">${grupo.nomeDaPromo}</div>` : '';
+                    groupEl.innerHTML = headerHtml + produtosHtml + footerHtml;
+                    cartItemsEl.appendChild(groupEl);
+                }
+            }
+
+            cartItemsEl.querySelectorAll('.cart-item-remove').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const { promoid, prodid, saborid } = e.currentTarget.dataset;
+                    removerDoCarrinho(promoid, parseInt(prodid), saborid === 'null' ? null : saborid);
+                });
+            });
+            
+            totalSemDescontoEl.style.display = economiaTotal > 0 ? 'block' : 'none';
+            economiaTotalEl.style.display = economiaTotal > 0 ? 'block' : 'none';
+            totalSemDescontoEl.innerHTML = `Total s/ desconto: R$ ${precoCheioTotal.toFixed(2).replace('.', ',')}`;
+            economiaTotalEl.innerHTML = `Economia Total: R$ ${economiaTotal.toFixed(2).replace('.', ',')}`;
+            document.getElementById('cart-total').innerHTML = `<strong>Total: R$ ${precoTotal.toFixed(2).replace('.', ',')}</strong>`;
+            totalDaVendaAtual = precoTotal;
+            btnFinalizar.disabled = !temItens;
+        }
+
+        function calcularPrecoComDesconto(produtoId, quantidadeTotal) {
+            const precos = precosPorProduto.get(produtoId);
+            const fallbackResult = { precoFinal: 0, precoCheio: 0, economia: 0 };
+            if (!precos || precos.length === 0) return fallbackResult;
+            const precoUnitarioInfo = precos.find(p => p.quantidade === 1);
+            if (!precoUnitarioInfo) return fallbackResult;
+            const precoUnitario = precoUnitarioInfo.preco;
+            const precoCheio = precoUnitario * quantidadeTotal;
+            let precoFinal = 0, quantidadeRestante = quantidadeTotal;
+            for (const pacote of precos) {
+                if (quantidadeRestante <= 0) break;
+                if (pacote.quantidade > quantidadeRestante) continue;
+                const numPacotes = Math.floor(quantidadeRestante / pacote.quantidade);
+                precoFinal += numPacotes * pacote.preco;
+                quantidadeRestante %= pacote.quantidade;
+            }
+            if(quantidadeRestante > 0) precoFinal += calcularPrecoComDesconto(produtoId, quantidadeRestante).precoFinal;
+            const economia = precoCheio - precoFinal;
+            return { precoFinal, precoCheio, economia };
+        }
+
+        // =======================================================
+        // MODAIS E LISTENERS
+        // =======================================================
+        function setupModalListeners() {
+            const modals = {
+                sabores: document.getElementById('sabores-modal'),
+                pagamento: document.getElementById('pagamento-modal'),
+                cliente: document.getElementById('cliente-modal')
+            };
+            document.getElementById('sabores-modal-cancel-btn').addEventListener('click', () => fecharModal(modals.sabores));
+            document.getElementById('finalizar-venda-btn').addEventListener('click', abrirModalPagamento);
+            document.getElementById('pagamento-modal-cancel-btn').addEventListener('click', () => fecharModal(modals.pagamento));
+            
+            document.getElementById('add-new-cliente-btn').addEventListener('click', () => {
+                document.getElementById('cliente-nome').value = '';
+                document.getElementById('cliente-telefone').value = '';
+                document.getElementById('cliente-email').value = '';
+                document.getElementById('cliente-obs').value = '';
+                abrirModal(modals.cliente);
+            });
+            
+            document.getElementById('cliente-modal-cancel-btn').addEventListener('click', () => fecharModal(modals.cliente));
+
+            Object.values(modals).forEach(modal => modal.addEventListener('click', (e) => e.target === modal && fecharModal(modal)));
+            document.querySelectorAll('#pagamento-modal input').forEach(input => input.addEventListener('input', atualizarValorRestante));
+            document.getElementById('confirmar-venda-btn').addEventListener('click', processarVenda);
+            document.getElementById('cliente-modal-save-btn').addEventListener('click', salvarNovoCliente);
+        }
+
+        function abrirModal(modal) { modal.classList.add('visible'); }
+        function fecharModal(modal) { modal.classList.remove('visible'); }
+        
+        function abrirModalSabores(produtoData, sabores) {
+            const modal = document.getElementById('sabores-modal');
+            document.getElementById('modal-product-name').textContent = `Selecionar para: ${produtoData.nome}`;
+            const saboresList = document.getElementById('modal-sabores-list');
+            saboresList.innerHTML = '';
+            sabores.forEach(sabor => {
+                const card = document.createElement('div');
+                card.className = 'sabor-card';
+                card.dataset.id = sabor.id_sabor;
+                card.dataset.nome = sabor.nome;
+                card.innerHTML = `<div class="sabor-card-nome">${sabor.nome}</div><div class="sabor-quantity-selector"><button class="btn-decrement" disabled>-</button><span class="sabor-quantity">0</span><button class="btn-increment">+</button></div>`;
+                saboresList.appendChild(card);
+            });
+            saboresList.querySelectorAll('.sabor-card').forEach(card => {
+                const dec=card.querySelector('.btn-decrement'), inc=card.querySelector('.btn-increment'), span=card.querySelector('.sabor-quantity');
+                inc.addEventListener('click', () => {let q=parseInt(span.textContent); span.textContent=++q; dec.disabled=false;});
+                dec.addEventListener('click', () => {let q=parseInt(span.textContent); if(q>0){span.textContent=--q;} if(q===0){dec.disabled=true;}});
+            });
+            const addBtn = document.getElementById('sabores-modal-add-btn');
+            const newAddBtn = addBtn.cloneNode(true);
+            addBtn.parentNode.replaceChild(newAddBtn, addBtn);
+            newAddBtn.addEventListener('click', () => {
+                saboresList.querySelectorAll('.sabor-card').forEach(card => {
+                    const quantidade = parseInt(card.querySelector('.sabor-quantity').textContent);
+                    if (quantidade > 0) adicionarAoCarrinho(produtoData, { id: card.dataset.id, nome: card.dataset.nome }, quantidade);
+                });
+                fecharModal(modal);
+            });
+            abrirModal(modal);
+        }
+        
+        function abrirModalPagamento() {
+            const modal = document.getElementById('pagamento-modal');
+            document.getElementById('pagamento-total-valor').textContent = `R$ ${totalDaVendaAtual.toFixed(2).replace('.', ',')}`;
+            document.querySelectorAll('#pagamento-modal input').forEach(input => input.value = '');
+            atualizarValorRestante();
+            abrirModal(modal);
+        }
+        
+        function atualizarValorRestante() {
+            const inputs = ['pix', 'dinheiro', 'debito', 'credito', 'caderneta'];
+            let valorPago = 0;
+            inputs.forEach(id => { valorPago += parseFloat(document.getElementById(`pag-${id}`).value) || 0; });
+            const restante = totalDaVendaAtual - valorPago;
+            const restanteEl = document.getElementById('pagamento-restante');
+            const restanteLabelEl = document.getElementById('pagamento-restante-label');
+            restanteEl.textContent = `R$ ${Math.abs(restante).toFixed(2).replace('.', ',')}`;
+            if (restante > 0.001) {
+                restanteLabelEl.textContent = 'Falta Pagar: ';
+                restanteEl.className = 'positivo';
+            } else {
+                restanteLabelEl.textContent = 'Troco: ';
+                restanteEl.className = 'negativo';
+            }
+            document.getElementById('confirmar-venda-btn').disabled = restante > 0.001;
+        }
+
+        // =======================================================
+        // FUNÇÕES DE CLIENTE
+        // =======================================================
+        function setupClienteListeners() {
+            const searchInput = document.getElementById('cliente-search');
+            const telefoneInput = document.getElementById('cliente-telefone');
+            searchInput.addEventListener('input', () => buscarClientes(searchInput.value));
+            telefoneInput.addEventListener('input', formatarTelefone);
+        }
+
+        function formatarTelefone(event) {
+            let input = event.target;
+            let value = input.value.replace(/\D/g, '');
+            value = value.substring(0, 11);
+
+            if (value.length > 10) {
+                value = value.replace(/^(\d{2})(\d)(\d{4})(\d{4}).*/, '($1) $2 $3-$4');
+            } else if (value.length > 6) {
+                value = value.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
+            } else if (value.length > 2) {
+                value = value.replace(/^(\d{2})(\d*)/, '($1) $2');
+            } else if (value.length > 0) {
+                value = value.replace(/^(\d*)/, '($1');
+            }
+            input.value = value;
+        }
+        
+        async function buscarClientes(termo) {
+            const resultsEl = document.getElementById('cliente-results');
+            if (termo.length < 2) {
+                resultsEl.style.display = 'none';
+                return;
+            }
+            try {
+                const { data, error } = await supabaseClient.from(T.CLIENTES).select('*').or(`nome.ilike.%${termo}%,telefone.ilike.%${termo}%`).limit(10);
+                if (error) throw error;
+                resultsEl.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(cliente => {
+                        const item = document.createElement('div');
+                        item.className = 'cliente-result-item';
+                        item.textContent = `${cliente.nome} (${cliente.telefone || 'Sem telefone'})`;
+                        item.addEventListener('click', () => selecionarCliente(cliente));
+                        resultsEl.appendChild(item);
+                    });
+                    resultsEl.style.display = 'block';
+                } else {
+                    resultsEl.style.display = 'none';
+                }
+            } catch(e) { console.error("Erro ao buscar clientes:", e); }
+        }
+        
+        function selecionarCliente(cliente) {
+            clienteSelecionado = cliente;
+            const display = document.getElementById('cliente-selecionado-display');
+            display.innerHTML = `<span>${cliente.nome}</span><button id="remover-cliente-btn" title="Remover cliente">&times;</button>`;
+            display.style.display = 'flex';
+            document.getElementById('cliente-search-area').style.display = 'none';
+            document.getElementById('cliente-results').style.display = 'none';
+            document.getElementById('remover-cliente-btn').addEventListener('click', removerClienteSelecionado);
+        }
+        
+        function removerClienteSelecionado() {
+            clienteSelecionado = null;
+            document.getElementById('cliente-selecionado-display').style.display = 'none';
+            document.getElementById('cliente-search-area').style.display = 'block';
+            document.getElementById('cliente-search').value = '';
+        }
+
+        async function salvarNovoCliente() {
+            const nome = document.getElementById('cliente-nome').value.trim();
+            const telefone = document.getElementById('cliente-telefone').value.trim();
+            const email = document.getElementById('cliente-email').value.trim();
+            const observacao = document.getElementById('cliente-obs').value.trim();
+            if (!nome) { alert("O nome do cliente é obrigatório."); return; }
+            
+            try {
+                const { data, error } = await supabaseClient.from(T.CLIENTES).insert({ nome, telefone, email, observacao }).select().single();
+                if (error) throw error;
+                selecionarCliente(data);
+                fecharModal(document.getElementById('cliente-modal'));
+            } catch(e) { console.error("Erro ao salvar cliente:", e); alert(`Erro ao salvar: ${e.message}`); }
+        }
+
+        // =======================================================
+        // PROCESSAMENTO DA VENDA
+        // =======================================================
+        async function processarVenda() {
+            const btnConfirmar = document.getElementById('confirmar-venda-btn');
+            btnConfirmar.disabled = true;
+            btnConfirmar.textContent = 'Registrando...';
+
+            try {
+                let precoCheioTotal = 0, precoTotalFinal = 0;
+                Object.values(carrinho).forEach(grupo => {
+                    const qtd = grupo.produtos.reduce((acc, p) => acc + p.quantidade, 0);
+                    const precoInfo = calcularPrecoComDesconto(grupo.produtoIdParaPreco, qtd);
+                    precoCheioTotal += precoInfo.precoCheio;
+                    precoTotalFinal += precoInfo.precoFinal;
+                });
+                const { data: vendaData, error: vendaError } = await supabaseClient
+                    .from(T.VENDAS).insert({
+                        total_sem_desconto: precoCheioTotal,
+                        desconto_quantidade: precoCheioTotal - precoTotalFinal,
+                        "Total": precoTotalFinal,
+                        "Data_da_Venda": new Date().toISOString(),
+                        id_cliente: clienteSelecionado ? clienteSelecionado.id_cliente : null
+                    }).select('id').single();
+                if (vendaError) throw vendaError;
+                const idVenda = vendaData.id;
+
+                const itensParaInserir = [];
+                for (const promoId in carrinho) {
+                    const grupo = carrinho[promoId];
+                    const qtdTotalGrupo = grupo.produtos.reduce((acc, p) => acc + p.quantidade, 0);
+                    if (qtdTotalGrupo === 0) continue;
+                    const precoInfoGrupo = calcularPrecoComDesconto(grupo.produtoIdParaPreco, qtdTotalGrupo);
+                    const precoUnitarioEfetivo = precoInfoGrupo.precoFinal / qtdTotalGrupo;
+                    grupo.produtos.forEach(p => {
+                        const precosDoProd = precosPorProduto.get(p.id);
+                        const precoUnitarioBase = precosDoProd.find(pr => pr.quantidade === 1)?.preco || 0;
+                        const precoCheioDoItem = precoUnitarioBase * p.quantidade;
+                        const precoFinalDoItem = precoUnitarioEfetivo * p.quantidade;
+                        const descontoDoItem = precoCheioDoItem - precoFinalDoItem;
+                        itensParaInserir.push({
+                            id_venda: idVenda,
+                            id_produto: p.id,
+                            id_sabor: p.saborId,
+                            quantidade: p.quantidade,
+                            preco_unitario_cheio: precoUnitarioBase,
+                            preco_unitario_na_venda: precoUnitarioEfetivo,
+                            desconto_aplicado: descontoDoItem > 0 ? descontoDoItem : 0
+                        });
+                    });
+                }
+                const { error: itensError } = await supabaseClient.from(T.VENDA_ITENS).insert(itensParaInserir);
+                if (itensError) throw itensError;
+
+                const pagamentosParaInserir = [];
+                const metodos = ['Pix', 'Dinheiro', 'Debito', 'Credito', 'Caderneta'];
+                metodos.forEach(metodo => {
+                    const valor = parseFloat(document.getElementById(`pag-${metodo.toLowerCase()}`).value) || 0;
+                    if (valor > 0) pagamentosParaInserir.push({ id_venda: idVenda, metodo: metodo, valor: valor });
+                });
+                if (pagamentosParaInserir.length > 0) {
+                     const { error: pagamentosError } = await supabaseClient.from(T.VENDA_PAGAMENTOS).insert(pagamentosParaInserir);
+                    if (pagamentosError) throw pagamentosError;
+                }
+                
+                alert('Venda registrada com sucesso!');
+                limparCarrinho();
+                fecharModal(document.getElementById('pagamento-modal'));
+
+            } catch (error) {
+                console.error("Erro ao processar venda:", error);
+                alert(`Ocorreu um erro ao registrar a venda: ${error.message}`);
+            } finally {
+                btnConfirmar.disabled = false;
+                btnConfirmar.textContent = 'Confirmar Venda';
+            }
+        }
+    </script>
+</body>
+</html>
+
